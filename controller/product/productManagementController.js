@@ -7,7 +7,6 @@ const createProduct = async (req, res) => {
     const { name, price, description, category, quantity, discount, image } =
       req.body;
 
-    // Required fields check
     if (!name || !price || !description || !category || !quantity || !image) {
       return errorHelper(
         res,
@@ -15,11 +14,6 @@ const createProduct = async (req, res) => {
         "All required fields must be provided",
         400
       );
-    }
-
-    const existingCategory = await Category.findById(category);
-    if (!existingCategory) {
-      return errorHelper(res, null, "Invalid category ID", 400);
     }
 
     const existingProduct = await Product.findOne({ name });
@@ -30,6 +24,11 @@ const createProduct = async (req, res) => {
         "Product with this name already exists",
         400
       );
+    }
+
+    const existingCategory = await Category.findById(category);
+    if (!existingCategory) {
+      return errorHelper(res, null, "Invalid category ID", 400);
     }
 
     const newProduct = new Product({
@@ -50,53 +49,69 @@ const createProduct = async (req, res) => {
     return errorHelper(res, error, "Failed to create product", 500);
   }
 };
+  
+const updateProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, price, description, category, quantity, discount, image } =
+      req.body;
 
-// const updateProduct = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const { name, price, description, category, quantity, discount, image } =
-//       req.body;
+    if (!name || !price || !description || !category || !quantity || !image) {
+      return errorHelper(
+        res,
+        null,
+        "All required fields must be provided",
+        400
+      );
+    }
 
-//     // Required fields check
-//     if (!name || !price || !description || !category || !quantity || !image) {
-//       return errorHelper(
-//         res,
-//         null,
-//         "All required fields must be provided",
-//         400
-//       );
-//     }
+    // 1️⃣ Check if category ID is valid
+    const existingCategory = await Category.findById(category);
+    if (!existingCategory) {
+      return errorHelper(res, null, "Invalid category ID", 400);
+    }
 
-//     const existingCategory = await Category.findById(category);
-//     if (!existingCategory) {
-//       return errorHelper(res, null, "Invalid category ID", 400);
-//     }
+    // 2️⃣ Check if product name is already used by another product
+    const existingProduct = await Product.findOne({ name, _id: { $ne: id } });
+    if (existingProduct) {
+      return errorHelper(
+        res,
+        null,
+        "Product with this name already exists",
+        400
+      );
+    }
 
-//     const updatedProduct = await Product.findByIdAndUpdate(
-//       id,
-//       {
-//         name,
-//         price,
-//         description,
-//         category,
-//         quantity,
-//         discount: discount || 0,
-//         image,
-//       },
-//       { new: true }
-//     );
+    const updatedProduct = await Product.findByIdAndUpdate(
+      id,
+      {
+        name,
+        price,
+        description,
+        category,
+        quantity,
+        discount: discount || 0,
+        image,
+      },
+      { new: true, runValidators: true }
+    );
 
-//     if (!updatedProduct) {
-//       return errorHelper(res, null, "Product not found", 404);
-//     }
+    if (!updatedProduct) {
+      return errorHelper(res, null, "Product not found", 404);
+    }
 
-//     return successHelper(res, updatedProduct, "Product updated successfully", 200);
-//   } catch (error) {
-//     return errorHelper(res, error, "Failed to update product", 500);
-//   }
-// }
+    return successHelper(
+      res,
+      updatedProduct,
+      "Product updated successfully",
+      200
+    );
+  } catch (error) {
+    return errorHelper(res, error, "Failed to update product", 500);
+  }
+};
 
 module.exports = {
   createProduct,
-  // updateProduct
+  updateProduct,
 };
