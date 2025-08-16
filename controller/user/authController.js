@@ -1,6 +1,6 @@
 const User = require("../../model/user/userModel");
 const bcrypt = require("bcryptjs");
-const crypto = require("crypto");
+const mongoose = require("mongoose");
 const sendEmail = require("../../utilities/email");
 const {
   successHelper,
@@ -9,6 +9,7 @@ const {
   generateToken,
   signToken,
 } = require("../../utilities/helpers");
+const { generateOtp, hashOtp } = require("../../utilities/otp");
 
 // Register new user
 const registerUser = async (req, res) => {
@@ -90,71 +91,88 @@ const updateUser = async (req, res) => {
   }
 };
 
-// // Forgot password → send email with reset link
-// const forgotPassword = async (req, res) => {
-//   try {
-//     const { email } = req.body;
-//     if (!email) return errorHelper(res, null, "Email required", 400);
+// ====================
+// Forgot Password (send OTP to email)
+// ====================
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return errorHelper(res, null, "Email is required", 400);
 
-//     const user = await User.findOne({ email });
-//     if (!user) return errorHelper(res, null, "User not found", 404);
+    const user = await User.findOne({ email });
+    if (!user) return errorHelper(res, null, "User not found", 404);
 
-//     const resetToken = signToken({ id: user._id });
-//     user.resetPasswordToken = crypto
-//       .createHash("sha256")
-//       .update(resetToken)
-//       .digest("hex");
-//     user.resetPasswordExpire = Date.now() + 30 * 60 * 1000; // 30 mins
-//     await user.save({ validateBeforeSave: false });
+    // Generate OTP
+    const otp = generateOtp();
+    const hashed = hashOtp(otp);
 
-//     const resetURL = `${req.protocol}://${req.get(
-//       "host"
-//     )}/api/user/reset/${resetToken}`;
-//     const message = `Click this link to reset your password:\n\n${resetURL}`;
+    // Save OTP + expiry (30 min) to user
+    user.resetPasswordOtp = hashed;
+    user.resetPasswordExpire = Date.now() + 30 * 60 * 1000;
+    await user.save({ validateBeforeSave: false });
 
-//     await sendEmail(user.email, "Password Reset Request", message);
+    // Send OTP via email
+    const message = `Your password reset OTP is: ${otp}\n\nIt will expire in 30 minutes.`;
+    await sendEmail(user.email, "Password Reset OTP", message);
 
-//     return successHelper(res, null, "Reset link sent to email");
-//   } catch (error) {
-//     return errorHelper(res, error, "Failed to send reset email", 500);
-//   }
-// };
+    return successHelper(res, null, "OTP sent to email", 200);
+  } catch (error) {
+    console.error("Error in forgotPassword:", error);
+    return errorHelper(res, error, "Failed to send OTP", 500);
+  }
+};
 
-// // Reset password using token
-// const resetPassword = async (req, res) => {
-//   try {
-//     const { token } = req.params;
-//     const { newPassword } = req.body;
+// ====================
+// Reset Password (verify OTP)
+// ====================
+const resetPassword = async (req, res) => {
+  try {
+    const { otp, newPassword, confirmNewPassword } = req.body;
 
-//     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+    if (!otp || !newPassword || !confirmNewPassword) {
+      return errorHelper(res, null, "OTP, new password, and confirm password are required", 400);
+    }
 
-//     const user = await User.findOne({
-//       resetPasswordToken: hashedToken,
-//       resetPasswordExpire: { $gt: Date.now() },
-//     });
+    if (newPassword !== confirmNewPassword) {
+      return errorHelper(res, null, "Passwords do not match", 400);
+    }
 
-//     if (!user) return errorHelper(res, null, "Invalid or expired token", 400);
+    // Find the logged-in user from token
+    const user = await User.findById(req.user.id);
+    if (!user) return errorHelper(res, null, "User not found", 404);
 
-//     user.password = await hashPassword(newPassword);
-//     user.resetPasswordToken = undefined;
-//     user.resetPasswordExpire = undefined;
+    // Verify OTP
+    const hashed = hashOtp(otp);
+    if (
+      user.resetPasswordOtp !== hashed ||
+      !user.resetPasswordExpire ||
+      user.resetPasswordExpire < Date.now()
+    ) {
+      return errorHelper(res, null, "Invalid or expired OTP", 400);
+    }
 
-//     await user.save();
+    // Hash new password
+    user.password = await hashPassword(newPassword);
 
-//     return successHelper(res, null, "Password reset successfully");
-//   } catch (error) {
-//     return errorHelper(res, error, "Reset password failed", 500);
-//   }
-// };
+    // Clear OTP fields
+    user.resetPasswordOtp = undefined;
+    user.resetPasswordExpire = undefined;
+
+    await user.save();
+
+    return successHelper(res, null, "Password reset successfully", 200);
+  } catch (error) {
+    console.error("Error in resetPassword:", error);
+    return errorHelper(res, error, "Reset password failed", 500);
+  }
+};
 
 const getUsers = async (req, res) => {
   try {
-    const users = await User.find()
-      .select("-password")
-      .populate({
-        path: "promoCode",       // the field in user model
-        select: "name discount", // fields to fetch from Promo
-      });
+    const users = await User.find().select("-password").populate({
+      path: "promoCode", // the field in user model
+      select: "name discount", // fields to fetch from Promo
+    });
 
     if (!users.length) return errorHelper(res, null, "No users found", 404);
 
@@ -166,13 +184,14 @@ const getUsers = async (req, res) => {
 
 const getUsersById = async (req, res) => {
   const id = req.params.id;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return errorHelper(res, null, "Invalid user ID", 400);
+  }
   try {
-    const user = await User.findById(id)
-      .select("-password")
-      .populate({
-        path: "promoCode",
-        select: "name discount",
-      });
+    const user = await User.findById(id).select("-password").populate({
+      path: "promoCode",
+      select: "name discount",
+    });
 
     if (!user) return errorHelper(res, null, "User not found", 404);
 
@@ -182,9 +201,11 @@ const getUsersById = async (req, res) => {
   }
 };
 
-
 const changePassword = async (req, res) => {
   const id = req.params.id;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return errorHelper(res, null, "Invalid user ID", 400);
+  }
   try {
     const { oldPassword, newPassword } = req.body;
     const user = await User.findById(id).select("+password");
@@ -214,10 +235,10 @@ const deleteUser = async (req, res) => {
 
     if (user.role === "admin")
       return errorHelper(res, null, "Cannot delete admin user", 403);
-  
+
     const deletingUser = await User.findByIdAndDelete(id);
     console.log("User deleted successfully:", deletingUser);
-   
+
     return successHelper(res, user, "User deleted successfully");
   } catch (error) {
     console.log("Error deleting user:", error);
@@ -229,8 +250,8 @@ module.exports = {
   registerUser,
   loginUser,
   updateUser,
-  // forgotPassword,
-  // resetPassword,
+  forgotPassword,
+  resetPassword,
   changePassword,
   deleteUser,
   getUsers,

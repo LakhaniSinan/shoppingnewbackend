@@ -4,9 +4,9 @@ const {
   getProductById,
   getProducts,
 } = require("../../controller/product/productManagementController");
-const { verifyUser } = require("../../middlewares/user/userAuth");
+const verifyOptionalAuth = require("../../middlewares/verifyOptionalAuth");
 
-router.get("/get",verifyUser, getProducts);
-router.get("/get/:id",verifyUser, getProductById);
+router.get("/get", verifyOptionalAuth, getProducts);
+router.get("/get/:id",verifyOptionalAuth, getProductById);
 
 module.exports = router;

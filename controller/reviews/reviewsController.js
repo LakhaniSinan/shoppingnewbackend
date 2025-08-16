@@ -77,11 +77,6 @@ const updateReview = async (req, res) => {
     if (comment) review.comment = comment;
 
     await review.save();
-    try {
-      await Review.calculateRatings(review.product);
-    } catch (err) {
-      console.error('Failed to recalculate product ratings after review update:', err);
-    }
 
     return successHelper(res, review, "Review updated successfully", 200);
   } catch (error) {

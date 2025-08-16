@@ -152,9 +152,12 @@ const getProducts = async (req, res) => {
       return { ...product, reviews: productReviews };
     });
 
-    // Promo code logic
-    if (req.user) {
+    // ===============================
+    // Role-based Promo Code Logic
+    // ===============================
+    if (req.user && req.user.role === "user") {
       console.log("Logged-in user found:", req.user._id);
+
       if (req.user.promoCode) {
         console.log("User has a promo code, populating...");
         await req.user.populate("promoCode");
@@ -167,7 +170,7 @@ const getProducts = async (req, res) => {
           console.log("Applying promo discount:", discountPercent);
 
           productsWithReviews = productsWithReviews.map((product) => {
-            const basePrice = product.discountedPrice || product.price;
+            const basePrice = product.discountedPrice || product.price; 
             const finalPrice = basePrice - (basePrice * discountPercent) / 100;
             console.log(`Product ${product.name} original: ${product.price}, after product discount: ${basePrice}, after promo: ${finalPrice}`);
             return { ...product, discountedPrice: finalPrice };
@@ -178,6 +181,8 @@ const getProducts = async (req, res) => {
       } else {
         console.log("User has no promo code.");
       }
+    } else if (req.user && req.user.role === "admin") {
+      console.log("Admin logged in, skipping promo code logic.");
     } else {
       console.log("No logged-in user detected.");
     }
@@ -188,6 +193,7 @@ const getProducts = async (req, res) => {
     return errorHelper(res, error, "Failed to retrieve products", 500);
   }
 };
+
 
 const getProductById = async (req, res) => {
   try {

@@ -10,7 +10,9 @@ const userSchema = new mongoose.Schema(
       ref: "Promo",
       default: null,
     },
-    role: { type: String, enum: ["user", "admin"], default: "user" },
+    resetPasswordOtp: { type: String },
+    resetPasswordExpire: { type: Date }, 
+    role: { type: String, default: "user" },
   },
   { timestamps: true }
 );

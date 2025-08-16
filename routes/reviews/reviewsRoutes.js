@@ -6,7 +6,7 @@ const {
   updateReview,
   deleteReview,
 } = require("../../controller/reviews/reviewsController");
-const { verifyUser } = require("../../middlewares/user/userAuth");
+const {verifyUser}  = require("../../middlewares/user/userAuth");
 
 router.post("/create", verifyUser, createReview);
 router.get("/get/:productId", verifyUser, getReviewsForProduct);
