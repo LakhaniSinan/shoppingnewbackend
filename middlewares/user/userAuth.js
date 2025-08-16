@@ -14,7 +14,9 @@ const verifyUser = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const foundUser = await User.findById(decoded.id).select("-password"); // use different variable name
+    const foundUser = await User.findById(decoded.id)
+      .select("-password")
+      .populate("promoCode"); // use different variable name
 
     if (!foundUser) {
       return errorHelper(res, null, "Unauthorized: user not found", 401);

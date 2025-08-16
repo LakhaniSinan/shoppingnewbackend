@@ -149,7 +149,13 @@ const updateUser = async (req, res) => {
 
 const getUsers = async (req, res) => {
   try {
-    const users = await User.find().select("-password");
+    const users = await User.find()
+      .select("-password")
+      .populate({
+        path: "promoCode",       // the field in user model
+        select: "name discount", // fields to fetch from Promo
+      });
+
     if (!users.length) return errorHelper(res, null, "No users found", 404);
 
     return successHelper(res, users, "Users fetched successfully");
@@ -161,14 +167,21 @@ const getUsers = async (req, res) => {
 const getUsersById = async (req, res) => {
   const id = req.params.id;
   try {
-    const user = await User.findById(id).select("-password");
+    const user = await User.findById(id)
+      .select("-password")
+      .populate({
+        path: "promoCode",
+        select: "name discount",
+      });
+
     if (!user) return errorHelper(res, null, "User not found", 404);
 
-    return successHelper(res, user, "Users fetched successfully");
+    return successHelper(res, user, "User fetched successfully");
   } catch (error) {
     return errorHelper(res, error, "Failed to fetch user", 500);
   }
 };
+
 
 const changePassword = async (req, res) => {
   const id = req.params.id;

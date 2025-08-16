@@ -11,11 +11,12 @@ const productSchema = new mongoose.Schema(
       ref: "Category",
       required: true,
     },
-    quantity: { type: Number, required: true, default: 1 },
+    quantity: { type: Number, default: 1 },
     discount: { type: Number, default: 0 },
     image: { type: String, required: true },
-    ratings: { type: Number, default: 0 },
-    reviews: [{ type: mongoose.Schema.Types.ObjectId, ref: "Review" }],
+  ratings: { type: Number, default: 0 }, // average rating
+  numOfReviews: { type: Number, default: 0 },
+  reviews: [{ type: mongoose.Schema.Types.ObjectId, ref: "Review" }],
   },
   { timestamps: true }
 );

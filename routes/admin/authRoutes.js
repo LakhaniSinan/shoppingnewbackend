@@ -8,7 +8,7 @@ const {
 const { verifyAdmin } = require("../../middlewares/admin/adminAuth");
 
 router.post("/register", registerAdmin);
-router.post("/login", verifyAdmin,loginAdmin);
+router.post("/login", loginAdmin);
 router.put("/change-password/:id", verifyAdmin, changePassword);
 
 module.exports = router;

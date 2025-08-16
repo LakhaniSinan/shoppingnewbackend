@@ -14,7 +14,7 @@ const {
 const { verifyUser } = require("../../middlewares/user/userAuth");
 
 router.post("/register", registerUser);
-router.post("/login", verifyUser,loginUser);
+router.post("/login", loginUser);
 // router.post("/forgot", forgotPassword);
 // router.put("/reset/:token", resetPassword);
 router.get("/get", getUsers);
